@@ -1,0 +1,29 @@
+name: Example - Create S3 Bucket
+
+on:
+  push:
+    branches:
+      - main
+env: 
+  bucket_name: roberto
+
+jobs:
+  create-bucket:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: us-east-1
+        role-to-assume: ${{ secrets.ROLE_ARN }}
+        role-session-name: ${{ github.actor }}
+        
+    - name: Create S3 Bucket
+      uses: realsensesolutions/actions-aws-bucket@main
+      id: bucket
+      with:
+        name: ${{ env.bucket_name }}

@@ -1,0 +1,44 @@
+name: 'AWS S3 Bucket Creator'
+description: 'Creates an S3 bucket using Terraform with specified configuration'
+author: 'realsensesolutions'
+
+inputs:
+  name:
+    description: 'Base name for the S3 bucket'
+    required: true
+
+outputs:
+  name:
+    description: 'The created S3 bucket name'
+    value: ${{ steps.create-bucket.outputs.bucket_name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
+
+    - name: Create S3 Bucket
+      id: create-bucket
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        export TF_VAR_bucket_base_name="${{ inputs.name }}"
+        
+        # Initialize Terraform
+        terraform init
+        
+        # Plan and Apply
+        terraform plan
+        terraform apply -auto-approve
+        
+        # Get the bucket name output
+        BUCKET_NAME=$(terraform output -raw bucket_name)
+        echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+        echo "Created S3 bucket: $BUCKET_NAME"
+
+branding:
+  icon: 'upload-cloud'
+  color: 'orange'
