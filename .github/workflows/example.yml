@@ -9,6 +9,10 @@ env:
 
 jobs:
   create-bucket:
+    permissions:
+      id-token: write # Required for AWS authentication
+      contents: read
+      
     runs-on: ubuntu-latest
     
     steps:
