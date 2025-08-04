@@ -1,6 +1,6 @@
 # AWS S3 Bucket Creator Action
 
-A GitHub Action that creates an S3 bucket using Terraform with configurable naming and security settings.
+A GitHub Action that creates an S3 bucket using Terraform with configurable naming and security settings. Uses remote backend state management for improved reliability and team collaboration.
 
 ## Features
 
@@ -8,16 +8,25 @@ A GitHub Action that creates an S3 bucket using Terraform with configurable nami
 - Configures bucket as private with public access blocked
 - Disables versioning
 - Limits bucket name to 63 characters (S3 requirement)
+- Uses Terraform remote backend for state management
 - Outputs bucket name for use in subsequent steps
 
 ## Usage
 
+**⚠️ Important:** This action requires Terraform backend resources to be set up first using the `actions-aws-backend-setup` action.
+
 ```yaml
+- name: Setup Terraform Backend
+  uses: realsensesolutions/actions-aws-backend-setup@main
+  with:
+    instance: demo
+
 - name: Create S3 Bucket
-  uses: github/realsensesolutions/actions-aws-bucket@main
+  uses: realsensesolutions/actions-aws-bucket@main
   id: bucket
   with:
     name: hello-world
+    instance: demo  # Must match the backend setup instance
 
 - name: Use bucket in next step
   run: echo "Bucket created: ${{ steps.bucket.outputs.name }}"
@@ -27,9 +36,10 @@ A GitHub Action that creates an S3 bucket using Terraform with configurable nami
 
 ## Inputs
 
-| Input | Description | Required |
-|-------|-------------|----------|
-| `name` | Base name for the S3 bucket | Yes |
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `name` | Base name for the S3 bucket | Yes | |
+| `instance` | Instance identifier for backend resources (must match backend setup) | Yes | `my-backend` |
 
 ## Outputs
 
@@ -55,7 +65,8 @@ The final name is automatically truncated to 63 characters to comply with S3 buc
 
 ## Prerequisites
 
-Your GitHub workflow must have AWS credentials configured. You can do this using:
+1. **AWS Credentials**: Your GitHub workflow must have AWS credentials configured
+2. **Backend Setup**: Terraform backend resources must be created first using `actions-aws-backend-setup`
 
 ```yaml
 - name: Configure AWS credentials
@@ -65,6 +76,19 @@ Your GitHub workflow must have AWS credentials configured. You can do this using
     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     aws-region: us-east-1
 ```
+
+## Backend Configuration
+
+This action uses a Terraform S3 backend with the following naming pattern:
+- **S3 Bucket**: `{instance}-terraform-state`
+- **DynamoDB Table**: `{instance}-terraform-state-lock`
+- **State Key**: `buckets/{bucket-name}/terraform.tfstate`
+
+The backend provides:
+- ✅ Remote state storage
+- ✅ State locking via DynamoDB
+- ✅ State encryption
+- ✅ Team collaboration support
 
 ## Example Workflow
 
@@ -89,12 +113,18 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
+
+    - name: Setup Terraform Backend
+      uses: realsensesolutions/actions-aws-backend-setup@main
+      with:
+        instance: my-app-prod
         
     - name: Create S3 Bucket
-      uses: github/realsensesolutions/actions-aws-bucket@main
+      uses: realsensesolutions/actions-aws-bucket@main
       id: bucket
       with:
         name: my-app
+        instance: my-app-prod
         
     - name: Deploy to bucket
       run: |

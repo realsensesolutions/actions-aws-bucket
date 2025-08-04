@@ -25,7 +25,11 @@ jobs:
         aws-region: us-east-1
         role-to-assume: ${{ secrets.ROLE_ARN }}
         role-session-name: ${{ github.actor }}
-        
+    
+    - uses: alonch/actions-aws-backend-setup@main
+      with: 
+        instance: bucket-demo 
+
     - name: Create S3 Bucket
       uses: realsensesolutions/actions-aws-bucket@main
       id: bucket

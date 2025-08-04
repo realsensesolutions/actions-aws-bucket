@@ -1,5 +1,5 @@
 name: 'AWS S3 Bucket Creator'
-description: 'Creates an S3 bucket using Terraform with specified configuration'
+description: 'Creates an S3 bucket using Terraform with backend state management. Requires prior setup of Terraform backend resources.'
 author: 'realsensesolutions'
 
 inputs:
@@ -17,18 +17,23 @@ runs:
   steps:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_wrapper: false
+
+    - name: Initialize Terraform
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |                
+        # Initialize Terraform with backend configuration
+        terraform init \
+          -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
+          -backend-config="key=${{ inputs.name }}" \
+          -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}"
 
     - name: Create S3 Bucket
       id: create-bucket
       shell: bash
+      working-directory: ${{ github.action_path }}
       run: |
-        cd ${{ github.action_path }}
         export TF_VAR_bucket_base_name="${{ inputs.name }}"
-        
-        # Initialize Terraform
-        terraform init
         
         # Plan and Apply
         terraform plan
