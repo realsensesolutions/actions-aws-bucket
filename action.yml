@@ -61,7 +61,7 @@ runs:
         
         # Plan and Apply
         # terraform plan
-        terraform apply -auto-approve
+        terraform apply -auto-approve -lock=false
         
         # Get the bucket name output
         BUCKET_NAME=$(terraform output -raw bucket_name)
