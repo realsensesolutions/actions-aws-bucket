@@ -5,13 +5,11 @@
         ],
         "AllowedMethods": [
             "PUT",
-            "GET",
-            "HEAD",
-            "POST",
-            "DELETE"
+            "GET"
         ],
         "AllowedOrigins": [
-            "https://test.aws.bucket.com"
+            "https://test.aws.bucket.com",
+            "https://test.aws.bucket2.com"
         ],
         "ExposeHeaders": [],
         "MaxAgeSeconds": 3000
