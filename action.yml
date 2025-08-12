@@ -60,7 +60,7 @@ runs:
       run: |
         
         # Plan and Apply
-        terraform plan
+        # terraform plan
         terraform apply -auto-approve
         
         # Get the bucket name output
