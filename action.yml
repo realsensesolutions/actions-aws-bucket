@@ -60,13 +60,16 @@ runs:
       run: |
         
         # Plan and Apply
-        # terraform plan
+        terraform plan
         terraform apply -auto-approve -lock=false
         
         # Get the bucket name output
         BUCKET_NAME=$(terraform output -raw bucket_name)
         echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
         echo "Created S3 bucket: $BUCKET_NAME"
+      env:
+        TF_VAR_bucket_base_name: ${{ inputs.name }}
+        TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
 
 branding:
   icon: 'upload-cloud'
