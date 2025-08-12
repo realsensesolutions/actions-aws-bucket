@@ -6,6 +6,9 @@ inputs:
   name:
     description: 'Base name for the S3 bucket'
     required: true
+  cors_configuration:
+    description: 'Path to JSON file containing CORS configuration for the S3 bucket. File must contain valid JSON with CORS rules. If blank, no CORS will be configured.'
+    required: false
 
 outputs:
   name:
@@ -18,8 +21,26 @@ runs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
-    - name: Initialize Terraform
+    - name: Read CORS Configuration
+      id: cors-config
       shell: bash
+      run: |
+        if [[ -n "${{ inputs.cors_configuration }}" && -f "${{ github.workspace }}/${{ inputs.cors_configuration }}" ]]; then
+          CORS_CONTENT=$(cat "${{ github.workspace }}/${{ inputs.cors_configuration }}")
+          echo "cors_content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CORS_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "✅ CORS configuration loaded from file: ${{ inputs.cors_configuration }}"
+        else
+          echo "cors_content=" >> $GITHUB_OUTPUT
+          if [[ -n "${{ inputs.cors_configuration }}" ]]; then
+            echo "⚠️ CORS file not found: ${{ inputs.cors_configuration }}, proceeding without CORS configuration"
+          else
+            echo "ℹ️ No CORS configuration provided"
+          fi
+        fi
+
+    - name: Initialize Terraform
       working-directory: ${{ github.action_path }}
       run: |                
         # Initialize Terraform with backend configuration
@@ -27,13 +48,16 @@ runs:
           -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
           -backend-config="key=${{ inputs.name }}" \
           -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}"
+      shell: bash
+      env:
+        TF_VAR_bucket_base_name: ${{ inputs.name }}
+        TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
 
     - name: Create S3 Bucket
       id: create-bucket
       shell: bash
       working-directory: ${{ github.action_path }}
       run: |
-        export TF_VAR_bucket_base_name="${{ inputs.name }}"
         
         # Plan and Apply
         terraform plan

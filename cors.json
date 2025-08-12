@@ -1,0 +1,19 @@
+[
+    {
+        "AllowedHeaders": [
+            "*"
+        ],
+        "AllowedMethods": [
+            "PUT",
+            "GET",
+            "HEAD",
+            "POST",
+            "DELETE"
+        ],
+        "AllowedOrigins": [
+            "https://test.aws.bucket.com"
+        ],
+        "ExposeHeaders": [],
+        "MaxAgeSeconds": 3000
+    }
+]

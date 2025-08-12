@@ -35,3 +35,4 @@ jobs:
       id: bucket
       with:
         name: ${{ env.bucket_name }}
+        # cors_configuration: cors.json
