@@ -57,11 +57,11 @@ resource "aws_s3_bucket_cors_configuration" "bucket_cors" {
   dynamic "cors_rule" {
     for_each = try(jsondecode(var.cors_configuration), [])
     content {
-      allowed_headers = try(cors_rule.value.allowed_headers, [])
-      allowed_methods = cors_rule.value.allowed_methods
-      allowed_origins = cors_rule.value.allowed_origins
-      expose_headers  = try(cors_rule.value.expose_headers, [])
-      max_age_seconds = try(cors_rule.value.max_age_seconds, null)
+      allowed_headers = try(cors_rule.value.AllowedHeaders, [])
+      allowed_methods = cors_rule.value.AllowedMethods
+      allowed_origins = cors_rule.value.AllowedOrigins
+      expose_headers  = try(cors_rule.value.ExposeHeaders, [])
+      max_age_seconds = try(cors_rule.value.MaxAgeSeconds, null)
     }
   }
 }
