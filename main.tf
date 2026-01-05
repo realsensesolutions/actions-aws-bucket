@@ -3,9 +3,20 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# Local values for bucket naming
+locals {
+  # Legacy naming: ${name}-action-aws-bucket-${random_id}
+  # Multi-tenant naming: ${name}-${purpose}-${random_id}
+  bucket_name = var.naming_pattern == "service-provider" ? (
+    substr("${var.bucket_base_name}-${var.bucket_purpose}-${random_id.suffix.hex}", 0, 63)
+  ) : (
+    substr("${var.bucket_base_name}-action-aws-bucket-${random_id.suffix.hex}", 0, 63)
+  )
+}
+
 # Create S3 bucket with specified naming pattern and 63 character limit
 resource "aws_s3_bucket" "bucket" {
-  bucket = substr("${var.bucket_base_name}-action-aws-bucket-${random_id.suffix.hex}", 0, 63)
+  bucket = local.bucket_name
 
   tags = {
     Name        = "ActionAWSBucket"

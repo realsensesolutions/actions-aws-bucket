@@ -9,6 +9,14 @@ inputs:
   cors_configuration:
     description: 'Path to JSON file containing CORS configuration for the S3 bucket. File must contain valid JSON with CORS rules. If blank, no CORS will be configured.'
     required: false
+  naming_pattern:
+    description: 'Bucket naming pattern: "default" (legacy) or "service-provider" (multi-tenant). Defaults to "default" for backward compatibility.'
+    required: false
+    default: 'default'
+  bucket_purpose:
+    description: 'Purpose suffix for bucket (e.g., "files", "assets", "backups"). Only used when naming_pattern is "service-provider". Defaults to "files".'
+    required: false
+    default: 'files'
 
 outputs:
   name:
@@ -52,6 +60,8 @@ runs:
       env:
         TF_VAR_bucket_base_name: ${{ inputs.name }}
         TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
+        TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
+        TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
 
     - name: Create S3 Bucket
       id: create-bucket
@@ -70,6 +80,8 @@ runs:
       env:
         TF_VAR_bucket_base_name: ${{ inputs.name }}
         TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
+        TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
+        TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
 
 branding:
   icon: 'upload-cloud'

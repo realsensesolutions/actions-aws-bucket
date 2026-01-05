@@ -1,0 +1,201 @@
+name: Test S3 Bucket Action
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**.tf'
+      - 'action.yml'
+      - '.github/workflows/**'
+
+jobs:
+  test-bucket-creation:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Test default (legacy) naming pattern
+          - test_name: legacy-pattern
+            bucket_name: test-app
+            naming_pattern: default
+            bucket_purpose: files
+            expected_pattern: "test-app-action-aws-bucket-"
+          
+          # Test service-provider pattern with files purpose
+          - test_name: service-provider-files
+            bucket_name: inrush
+            naming_pattern: service-provider
+            bucket_purpose: files
+            expected_pattern: "inrush-files-"
+          
+          # Test service-provider pattern with assets purpose
+          - test_name: service-provider-assets
+            bucket_name: ldeng
+            naming_pattern: service-provider
+            bucket_purpose: assets
+            expected_pattern: "ldeng-assets-"
+          
+          # Test service-provider pattern with backups purpose
+          - test_name: service-provider-backups
+            bucket_name: test-provider
+            naming_pattern: service-provider
+            bucket_purpose: backups
+            expected_pattern: "test-provider-backups-"
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: test-bucket-${{ matrix.test_name }}-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform Backend
+        uses: realsensesolutions/actions-aws-backend-setup@main
+        with:
+          instance: test-bucket-action
+
+      - name: Create S3 Bucket
+        id: create-bucket
+        uses: ./
+        with:
+          name: ${{ matrix.bucket_name }}
+          naming_pattern: ${{ matrix.naming_pattern }}
+          bucket_purpose: ${{ matrix.bucket_purpose }}
+
+      - name: Verify Bucket Name Pattern
+        run: |
+          BUCKET_NAME="${{ steps.create-bucket.outputs.name }}"
+          EXPECTED_PATTERN="${{ matrix.expected_pattern }}"
+          
+          echo "📦 Created bucket: $BUCKET_NAME"
+          echo "🔍 Expected pattern: $EXPECTED_PATTERN"
+          
+          if [[ "$BUCKET_NAME" == $EXPECTED_PATTERN* ]]; then
+            echo "✅ Bucket name matches expected pattern!"
+          else
+            echo "❌ Bucket name does NOT match expected pattern!"
+            echo "   Expected to start with: $EXPECTED_PATTERN"
+            echo "   Actual bucket name: $BUCKET_NAME"
+            exit 1
+          fi
+          
+          # Verify bucket name length (S3 limit is 63 characters)
+          BUCKET_LENGTH=${#BUCKET_NAME}
+          if [ $BUCKET_LENGTH -gt 63 ]; then
+            echo "❌ Bucket name exceeds 63 character limit!"
+            echo "   Length: $BUCKET_LENGTH"
+            exit 1
+          else
+            echo "✅ Bucket name length is valid: $BUCKET_LENGTH characters"
+          fi
+
+      - name: Verify Bucket Exists
+        run: |
+          BUCKET_NAME="${{ steps.create-bucket.outputs.name }}"
+          
+          echo "🔍 Verifying bucket exists in AWS..."
+          if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>&1; then
+            echo "✅ Bucket exists and is accessible!"
+          else
+            echo "❌ Bucket does not exist or is not accessible!"
+            exit 1
+          fi
+
+      - name: Verify Bucket Configuration
+        run: |
+          BUCKET_NAME="${{ steps.create-bucket.outputs.name }}"
+          
+          echo "🔍 Checking bucket configuration..."
+          
+          # Check public access block
+          PUBLIC_ACCESS=$(aws s3api get-public-access-block --bucket "$BUCKET_NAME" 2>/dev/null || echo "not-configured")
+          if [ "$PUBLIC_ACCESS" != "not-configured" ]; then
+            echo "✅ Public access block is configured"
+          else
+            echo "⚠️ Public access block not found (may be default)"
+          fi
+          
+          # Check versioning (should be disabled)
+          VERSIONING=$(aws s3api get-bucket-versioning --bucket "$BUCKET_NAME" --query 'Status' --output text 2>/dev/null || echo "Disabled")
+          if [ "$VERSIONING" == "Disabled" ] || [ "$VERSIONING" == "None" ]; then
+            echo "✅ Versioning is disabled (as expected)"
+          else
+            echo "⚠️ Versioning status: $VERSIONING"
+          fi
+
+      - name: Cleanup Test Bucket
+        if: always()
+        run: |
+          BUCKET_NAME="${{ steps.create-bucket.outputs.name }}"
+          
+          echo "🧹 Cleaning up test bucket: $BUCKET_NAME"
+          
+          # Delete all objects in the bucket
+          aws s3 rm s3://$BUCKET_NAME --recursive 2>/dev/null || true
+          
+          # Delete the bucket
+          aws s3api delete-bucket --bucket "$BUCKET_NAME" 2>/dev/null || true
+          
+          echo "✅ Cleanup completed"
+
+  test-backward-compatibility:
+    runs-on: ubuntu-latest
+    name: Test Backward Compatibility
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: test-backward-compat-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform Backend
+        uses: realsensesolutions/actions-aws-backend-setup@main
+        with:
+          instance: test-bucket-action
+
+      - name: Test Default Behavior (No naming_pattern specified)
+        id: test-default
+        uses: ./
+        with:
+          name: backward-compat-test
+          # naming_pattern not specified - should default to "default"
+
+      - name: Verify Default Pattern Used
+        run: |
+          BUCKET_NAME="${{ steps.test-default.outputs.name }}"
+          
+          echo "📦 Created bucket: $BUCKET_NAME"
+          
+          if [[ "$BUCKET_NAME" == "backward-compat-test-action-aws-bucket-"* ]]; then
+            echo "✅ Backward compatibility maintained - default pattern used!"
+          else
+            echo "❌ Backward compatibility broken!"
+            echo "   Expected pattern: backward-compat-test-action-aws-bucket-*"
+            echo "   Actual: $BUCKET_NAME"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          BUCKET_NAME="${{ steps.test-default.outputs.name }}"
+          aws s3 rm s3://$BUCKET_NAME --recursive 2>/dev/null || true
+          aws s3api delete-bucket --bucket "$BUCKET_NAME" 2>/dev/null || true
