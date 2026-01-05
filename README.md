@@ -218,4 +218,4 @@ See `example.yml` in this repository for a comprehensive example using matrix st
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License...
