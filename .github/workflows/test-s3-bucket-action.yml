@@ -11,6 +11,7 @@ on:
 jobs:
   test-bucket-creation:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -65,11 +66,17 @@ jobs:
 
       - name: Create S3 Bucket
         id: create-bucket
+        timeout-minutes: 5
         uses: ./
         with:
           name: ${{ matrix.bucket_name }}
           naming_pattern: ${{ matrix.naming_pattern }}
           bucket_purpose: ${{ matrix.bucket_purpose }}
+
+      - name: Wait for other buckets to complete
+        run: |
+          echo "⏳ Waiting 30 seconds for other parallel bucket creations to complete..."
+          sleep 30
 
       - name: Verify Bucket Name Pattern
         run: |
@@ -150,6 +157,7 @@ jobs:
   test-backward-compatibility:
     runs-on: ubuntu-latest
     name: Test Backward Compatibility
+    timeout-minutes: 5
 
     permissions:
       id-token: write
@@ -173,10 +181,16 @@ jobs:
 
       - name: Test Default Behavior (No naming_pattern specified)
         id: test-default
+        timeout-minutes: 5
         uses: ./
         with:
           name: backward-compat-test
           # naming_pattern not specified - should default to "default"
+
+      - name: Wait for other buckets to complete
+        run: |
+          echo "⏳ Waiting 30 seconds for other parallel bucket creations to complete..."
+          sleep 30
 
       - name: Verify Default Pattern Used
         run: |
