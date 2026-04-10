@@ -40,3 +40,14 @@ variable "bucket_purpose" {
     error_message = "Bucket purpose must contain only lowercase letters, numbers, and hyphens."
   }
 }
+
+variable "enable_versioning" {
+  description = "Enable versioning on the S3 bucket"
+  type        = string
+  default     = "false"
+
+  validation {
+    condition     = contains(["true", "false"], var.enable_versioning)
+    error_message = "enable_versioning must be either 'true' or 'false'."
+  }
+}

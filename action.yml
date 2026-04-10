@@ -17,6 +17,10 @@ inputs:
     description: 'Purpose suffix for bucket (e.g., "files", "assets", "backups"). Only used when naming_pattern is "service-provider". Defaults to "files".'
     required: false
     default: 'files'
+  enable_versioning:
+    description: 'Enable versioning on the S3 bucket. Defaults to false.'
+    required: false
+    default: 'false'
 
 outputs:
   name:
@@ -62,6 +66,7 @@ runs:
         TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
+        TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
 
     - name: Create S3 Bucket
       id: create-bucket
@@ -82,6 +87,7 @@ runs:
         TF_VAR_cors_configuration: ${{ steps.cors-config.outputs.cors_content }}
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
+        TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
 
 branding:
   icon: 'upload-cloud'

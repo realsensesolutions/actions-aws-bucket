@@ -25,11 +25,11 @@ resource "aws_s3_bucket" "bucket" {
   }
 }
 
-# Configure bucket versioning (disabled as required)
+# Configure bucket versioning (disabled by default, can be enabled via enable_versioning)
 resource "aws_s3_bucket_versioning" "bucket_versioning" {
   bucket = aws_s3_bucket.bucket.id
   versioning_configuration {
-    status = "Disabled"
+    status = var.enable_versioning == "true" ? "Enabled" : "Disabled"
   }
 }
 
