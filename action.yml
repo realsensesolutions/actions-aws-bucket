@@ -59,6 +59,7 @@ runs:
         terraform init \
           -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
           -backend-config="key=${{ inputs.name }}" \
+          -backend-config="use_lockfile=true" \
           -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}"
       shell: bash
       env:
