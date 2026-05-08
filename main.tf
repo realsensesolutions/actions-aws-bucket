@@ -9,7 +9,7 @@ locals {
   # Multi-tenant naming: ${name}-${purpose}-${random_id}
   bucket_name = var.naming_pattern == "service-provider" ? (
     substr("${var.bucket_base_name}-${var.bucket_purpose}-${random_id.suffix.hex}", 0, 63)
-  ) : (
+    ) : (
     substr("${var.bucket_base_name}-action-aws-bucket-${random_id.suffix.hex}", 0, 63)
   )
 }
@@ -33,22 +33,43 @@ resource "aws_s3_bucket_versioning" "bucket_versioning" {
   }
 }
 
-# Configure bucket public access block (private as required)
+# Configure bucket public access block (driven by var.public)
 resource "aws_s3_bucket_public_access_block" "bucket_pab" {
   bucket = aws_s3_bucket.bucket.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  block_public_acls       = var.public == "true" ? false : true
+  block_public_policy     = var.public == "true" ? false : true
+  ignore_public_acls      = var.public == "true" ? false : true
+  restrict_public_buckets = var.public == "true" ? false : true
+}
+
+# Public-read bucket policy (only when var.public == "true")
+resource "aws_s3_bucket_policy" "public_read" {
+  count  = var.public == "true" ? 1 : 0
+  bucket = aws_s3_bucket.bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.bucket.arn}/*"
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.bucket_pab]
 }
 
 # Configure bucket ACL (private)
 resource "aws_s3_bucket_acl" "bucket_acl" {
   depends_on = [aws_s3_bucket_ownership_controls.bucket_acl_ownership]
-  
-  bucket     = aws_s3_bucket.bucket.id
-  acl        = "private"
+
+  bucket = aws_s3_bucket.bucket.id
+  acl    = "private"
 }
 
 # Configure bucket ownership controls

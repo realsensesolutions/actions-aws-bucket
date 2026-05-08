@@ -21,11 +21,18 @@ inputs:
     description: 'Enable versioning on the S3 bucket. Defaults to false.'
     required: false
     default: 'false'
+  public:
+    description: 'Make the bucket publicly readable for anonymous s3:GetObject. Defaults to false.'
+    required: false
+    default: 'false'
 
 outputs:
   name:
     description: 'The created S3 bucket name'
     value: ${{ steps.create-bucket.outputs.bucket_name }}
+  url:
+    description: 'Public HTTPS base URL for the bucket (only meaningful when public=true).'
+    value: ${{ steps.create-bucket.outputs.bucket_url }}
 
 runs:
   using: 'composite'
@@ -67,6 +74,7 @@ runs:
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
         TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
+        TF_VAR_public: ${{ inputs.public }}
 
     - name: Create S3 Bucket
       id: create-bucket
@@ -78,9 +86,10 @@ runs:
         terraform plan -lock-timeout=5m
         terraform apply -auto-approve -lock-timeout=5m
         
-        # Get the bucket name output
         BUCKET_NAME=$(terraform output -raw bucket_name)
+        BUCKET_URL=$(terraform output -raw bucket_url)
         echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+        echo "bucket_url=$BUCKET_URL" >> $GITHUB_OUTPUT
         echo "Created S3 bucket: $BUCKET_NAME"
       env:
         TF_VAR_bucket_base_name: ${{ inputs.name }}
@@ -88,6 +97,7 @@ runs:
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
         TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
+        TF_VAR_public: ${{ inputs.public }}
 
 branding:
   icon: 'upload-cloud'
