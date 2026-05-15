@@ -51,14 +51,3 @@ variable "enable_versioning" {
     error_message = "enable_versioning must be either 'true' or 'false'."
   }
 }
-
-variable "public_read" {
-  description = "When true, attach a bucket policy granting s3:GetObject to anyone."
-  type        = string
-  default     = "false"
-
-  validation {
-    condition     = contains(["true", "false"], var.public_read)
-    error_message = "public_read must be either 'true' or 'false'."
-  }
-}
