@@ -213,3 +213,124 @@ jobs:
           BUCKET_NAME="${{ steps.test-default.outputs.name }}"
           aws s3 rm s3://$BUCKET_NAME --recursive 2>/dev/null || true
           aws s3api delete-bucket --bucket "$BUCKET_NAME" 2>/dev/null || true
+
+  test-public-read:
+    runs-on: ubuntu-latest
+    name: Test Public Read
+    timeout-minutes: 5
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: test-public-read-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform Backend
+        uses: realsensesolutions/actions-aws-backend-setup@main
+        with:
+          instance: test-bucket-action
+
+      - name: Create Public-Read S3 Bucket
+        id: create-public-bucket
+        timeout-minutes: 5
+        uses: ./
+        with:
+          name: test-public-read
+          public_read: 'true'
+
+      - name: Wait for other buckets to complete
+        run: |
+          echo "⏳ Waiting 30 seconds for other parallel bucket creations to complete..."
+          sleep 30
+
+      - name: Verify public_url_prefix Output Shape
+        run: |
+          PUBLIC_URL_PREFIX="${{ steps.create-public-bucket.outputs.public_url_prefix }}"
+          BUCKET_NAME="${{ steps.create-public-bucket.outputs.name }}"
+
+          echo "📦 Created bucket: $BUCKET_NAME"
+          echo "🔗 public_url_prefix: $PUBLIC_URL_PREFIX"
+
+          if [ -z "$PUBLIC_URL_PREFIX" ]; then
+            echo "❌ public_url_prefix is empty (expected non-empty when public_read=true)"
+            exit 1
+          fi
+
+          if [[ "$PUBLIC_URL_PREFIX" != https://* ]]; then
+            echo "❌ public_url_prefix does not start with https://"
+            echo "   Got: $PUBLIC_URL_PREFIX"
+            exit 1
+          fi
+
+          if [[ "$PUBLIC_URL_PREFIX" != */ ]]; then
+            echo "❌ public_url_prefix does not end with /"
+            echo "   Got: $PUBLIC_URL_PREFIX"
+            exit 1
+          fi
+
+          if [[ "$PUBLIC_URL_PREFIX" != *"$BUCKET_NAME"* ]]; then
+            echo "❌ public_url_prefix does not contain the bucket name"
+            echo "   Bucket: $BUCKET_NAME"
+            echo "   URL:    $PUBLIC_URL_PREFIX"
+            exit 1
+          fi
+
+          echo "✅ public_url_prefix output is well-formed"
+
+      - name: Verify Bucket Policy Exists
+        run: |
+          BUCKET_NAME="${{ steps.create-public-bucket.outputs.name }}"
+
+          echo "🔍 Checking bucket policy on $BUCKET_NAME..."
+          POLICY_JSON=$(aws s3api get-bucket-policy --bucket "$BUCKET_NAME" --query Policy --output text)
+
+          if [ -z "$POLICY_JSON" ]; then
+            echo "❌ No bucket policy attached"
+            exit 1
+          fi
+
+          echo "📄 Policy:"
+          echo "$POLICY_JSON" | jq .
+
+          PRINCIPAL=$(echo "$POLICY_JSON" | jq -r '.Statement[0].Principal')
+          ACTION=$(echo "$POLICY_JSON" | jq -r '.Statement[0].Action')
+          EFFECT=$(echo "$POLICY_JSON" | jq -r '.Statement[0].Effect')
+
+          if [ "$PRINCIPAL" != "*" ]; then
+            echo "❌ Expected Principal=\"*\", got: $PRINCIPAL"
+            exit 1
+          fi
+
+          if [ "$ACTION" != "s3:GetObject" ]; then
+            echo "❌ Expected Action=\"s3:GetObject\", got: $ACTION"
+            exit 1
+          fi
+
+          if [ "$EFFECT" != "Allow" ]; then
+            echo "❌ Expected Effect=\"Allow\", got: $EFFECT"
+            exit 1
+          fi
+
+          echo "✅ Bucket policy grants anonymous s3:GetObject"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          BUCKET_NAME="${{ steps.create-public-bucket.outputs.name }}"
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "ℹ️  No bucket name captured — nothing to clean up"
+            exit 0
+          fi
+          echo "🧹 Cleaning up test bucket: $BUCKET_NAME"
+          aws s3 rm s3://$BUCKET_NAME --recursive 2>/dev/null || true
+          aws s3api delete-bucket --bucket "$BUCKET_NAME" 2>/dev/null || true
+          echo "✅ Cleanup completed"
