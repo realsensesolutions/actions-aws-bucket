@@ -46,14 +46,12 @@ steps:
 | `naming_pattern` | Bucket naming pattern. `"default"` produces a legacy name; `"service-provider"` produces a multi-tenant name. | No | `"default"` |
 | `bucket_purpose` | Purpose suffix appended to the bucket name (e.g., `"files"`, `"assets"`, `"backups"`). Only used when `naming_pattern` is `"service-provider"`. | No | `"files"` |
 | `enable_versioning` | Set to `"true"` to enable S3 bucket versioning. When enabled, S3 keeps all versions of an object so you can recover from unintended overwrites or deletions. | No | `"false"` |
-| `public_read` | Set to `"true"` to make the bucket public-readable via a bucket policy that grants anonymous `s3:GetObject` to all objects. ACL-based public access stays disabled in both modes. See [Public Read Access](#public-read-access) below for the security trade-off. | No | `"false"` |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
 | `name` | The name of the created S3 bucket. |
-| `public_url_prefix` | HTTPS URL prefix for objects in this bucket (e.g. `https://my-bucket.s3.us-east-1.amazonaws.com/`). Empty string when `public_read` is `"false"`. Append an object key to build a direct download URL. |
 
 ## Bucket Naming
 
@@ -87,26 +85,9 @@ Use the **default** pattern for single-tenant projects. Use **service-provider**
 |---------|-------|
 | Versioning | Disabled by default. Set `enable_versioning: 'true'` to enable. |
 | Access Control | Private (ACL + ownership controls) |
-| Public Access | Fully blocked by default. Set `public_read: 'true'` to grant anonymous read via bucket policy. See [Public Read Access](#public-read-access). |
+| Public Access | Fully blocked |
 | Encryption | AWS-managed (S3 default) |
 | CORS | None by default. Provide a JSON file via `cors_configuration` to enable. |
-
-## Public Read Access
-
-By default, the bucket has **all four Block Public Access** flags enabled and no bucket policy, so the bucket and all of its objects are fully private.
-
-When you set `public_read: 'true'`, the action makes the following changes:
-
-- `block_public_policy` flips to `false`
-- `restrict_public_buckets` flips to `false`
-- `block_public_acls` stays `true` (ACL-based public access stays disabled)
-- `ignore_public_acls` stays `true` (ACL-based public access stays disabled)
-- A bucket policy is attached granting anonymous `s3:GetObject` to all objects in the bucket (`Principal: "*"`).
-
-This is the AWS-recommended pattern for static public hosting: policy-based public read, ACL-based public access disabled.
-
-> [!WARNING]
-> **Security trade-off.** When `public_read: 'true'`, **anyone on the internet** who has the object URL can download any object in the bucket without authentication. Do not put credentials, secrets, internal builds, or anything sensitive in a public-read bucket. Treat every object as if it were on a public website.
 
 ## CORS Configuration
 
@@ -191,23 +172,6 @@ jobs:
   with:
     name: my-app-backups
     enable_versioning: 'true'
-```
-
-### Public-Read Bucket (Permanent Download URLs)
-
-Use this when you want to publish artifacts (e.g. release builds, installers) at a permanent, unauthenticated URL. See [Public Read Access](#public-read-access) for the security trade-off.
-
-```yaml
-- name: Get public S3 Bucket
-  uses: realsensesolutions/actions-aws-bucket@main
-  id: bucket
-  with:
-    name: my-release-bucket
-    public_read: 'true'
-
-- name: Show public URL
-  run: |
-    echo "Downloads available at ${{ steps.bucket.outputs.public_url_prefix }}path/to/object"
 ```
 
 ### Multi-Tenant SaaS Pattern
