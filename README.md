@@ -46,6 +46,49 @@ steps:
 | `naming_pattern` | Bucket naming pattern. `"default"` produces a legacy name; `"service-provider"` produces a multi-tenant name. | No | `"default"` |
 | `bucket_purpose` | Purpose suffix appended to the bucket name (e.g., `"files"`, `"assets"`, `"backups"`). Only used when `naming_pattern` is `"service-provider"`. | No | `"files"` |
 | `enable_versioning` | Set to `"true"` to enable S3 bucket versioning. When enabled, S3 keeps all versions of an object so you can recover from unintended overwrites or deletions. | No | `"false"` |
+| `noncurrent_version_expiration_days` | Expire previous versions after this many days; `0` leaves expiration disabled. Requires versioning when positive. | No | `"0"` |
+| `force_destroy` | Permit destruction of a nonempty bucket. Leave false for production data. | No | `"false"` |
+| `manage_encryption` | Manage S3 AES256 encryption explicitly. Leave false to preserve separately configured encryption, including KMS. | No | `"false"` |
+
+## Data protection
+
+For recoverable production assets, enable versioning, retain prior versions for
+30 days, and keep force deletion disabled:
+
+```yaml
+- uses: realsensesolutions/actions-aws-bucket@<reviewed-commit>
+  with:
+    name: example-assets
+    enable_versioning: 'true'
+    noncurrent_version_expiration_days: '30'
+    force_destroy: 'false'
+    manage_encryption: 'true'
+```
+
+This lifecycle expires only noncurrent object versions and aborts incomplete
+multipart uploads after seven days; current objects are retained. Existing
+callers keep versioning disabled, no expiration policy, and nonempty-bucket
+protection. Encryption settings remain untouched by default. Set
+`manage_encryption: 'true'` only when this action should manage S3 AES256 encryption;
+this explicit opt-in replaces any separately configured KMS encryption.
+
+When adopting earlier vendored controls, preserve the backend bucket, the state
+key equal to `name`, and the naming inputs. Set `manage_encryption: 'true'` to
+retain the existing managed AES256 configuration. An explicit Terraform `moved`
+block transfers the old unindexed
+`aws_s3_bucket_server_side_encryption_configuration.bucket` state address to
+`aws_s3_bucket_server_side_encryption_configuration.bucket[0]`; the physical
+configuration is retained without recreation. This is the sole state-address
+migration. Leaving the new option false on such an existing managed deployment
+would plan removal of that configuration, so review the plan before applying.
+Optional version expiration retains
+`aws_s3_bucket_lifecycle_configuration.versions[0]` and the
+`ExpirePriorVersions` rule. Pass the existing expiration value to retain it.
+Neither the bucket nor its random suffix needs replacement.
+
+Run `terraform init -backend=false -lockfile=readonly`, `terraform validate`, and
+`terraform test` for offline validation with mocked AWS providers. Tests verify
+default protection, explicit version expiration, and invalid combinations.
 
 ## Outputs
 
@@ -86,7 +129,7 @@ Use the **default** pattern for single-tenant projects. Use **service-provider**
 | Versioning | Disabled by default. Set `enable_versioning: 'true'` to enable. |
 | Access Control | Private (ACL + ownership controls) |
 | Public Access | Fully blocked |
-| Encryption | AWS-managed (S3 default) |
+| Encryption | Existing/S3 default preserved; explicit AES256 management is opt-in |
 | CORS | None by default. Provide a JSON file via `cors_configuration` to enable. |
 
 ## CORS Configuration
