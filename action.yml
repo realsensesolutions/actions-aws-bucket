@@ -21,18 +21,6 @@ inputs:
     description: 'Enable versioning on the S3 bucket. Defaults to false.'
     required: false
     default: 'false'
-  noncurrent_version_expiration_days:
-    description: 'Expire previous object versions after this many days; 0 keeps them indefinitely'
-    required: false
-    default: '0'
-  force_destroy:
-    description: 'Allow Terraform to delete objects when destroying the bucket; false protects nonempty buckets'
-    required: false
-    default: 'false'
-  manage_encryption:
-    description: 'Manage S3 AES256 encryption explicitly; false preserves separately configured encryption'
-    required: false
-    default: 'false'
 
 outputs:
   name:
@@ -79,9 +67,6 @@ runs:
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
         TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
-        TF_VAR_noncurrent_version_expiration_days: ${{ inputs.noncurrent_version_expiration_days }}
-        TF_VAR_force_destroy: ${{ inputs.force_destroy }}
-        TF_VAR_manage_encryption: ${{ inputs.manage_encryption }}
 
     - name: Create S3 Bucket
       id: create-bucket
@@ -103,9 +88,6 @@ runs:
         TF_VAR_naming_pattern: ${{ inputs.naming_pattern }}
         TF_VAR_bucket_purpose: ${{ inputs.bucket_purpose }}
         TF_VAR_enable_versioning: ${{ inputs.enable_versioning }}
-        TF_VAR_noncurrent_version_expiration_days: ${{ inputs.noncurrent_version_expiration_days }}
-        TF_VAR_force_destroy: ${{ inputs.force_destroy }}
-        TF_VAR_manage_encryption: ${{ inputs.manage_encryption }}
 
 branding:
   icon: 'upload-cloud'
