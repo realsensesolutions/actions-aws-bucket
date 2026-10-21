@@ -56,7 +56,7 @@ For recoverable production assets, enable versioning, retain prior versions for
 30 days, and keep force deletion disabled:
 
 ```yaml
-- uses: realsensesolutions/actions-aws-bucket@<reviewed-commit>
+- uses: realsensesolutions/actions-aws-bucket@main
   with:
     name: example-assets
     enable_versioning: 'true'
